@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lista de tarefas</title>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  // ====== COLE AQUI AS SUAS CHAVES DO FIREBASE ======
+  // Pegue isso em: Firebase Console > Configurações do projeto > Seus apps > SDK config
+  const firebaseConfig = {
+    apiKey: "AIzaSyCs8chhetO13dapyLwAIk70HZUi-U9vH08",
+    authDomain: "tarefas-d28b7.firebaseapp.com",
+    databaseURL: "https://tarefas-d28b7-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "tarefas-d28b7",
+    storageBucket: "tarefas-d28b7.firebasestorage.app",
+    messagingSenderId: "713955551716",
+    appId: "1:713955551716:web:6f2ac5fbf4ffd4a1b67ff1"
+  };
+  // ====================================================
+
+  const firebaseApp = initializeApp(firebaseConfig);
+  const db = getDatabase(firebaseApp);
+  const dataRef = ref(db, "lista-de-tarefas");
+
+  window.cloudStorage = {
+    async load() {
+      const snapshot = await get(dataRef);
+      return snapshot.exists() ? snapshot.val() : null;
+    },
+    async save(data) {
+      await set(dataRef, data);
+    }
+  };
+
+  window.dispatchEvent(new Event("firebase-ready"));
+</script>
+
+<style>
+  :root {
+    --bg: #14213D;
+    --card: #FFFDF9;
+    --accent: #FCA311;
+    --text: #14213D;
+    --muted: #6b7280;
+    --border: #e5e2d9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 48px 16px;
+  }
+  .app { width: 100%; max-width: 520px; }
+  h1 { color: var(--card); font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+  .subtitle { color: rgba(255,255,255,0.6); font-size: 13px; margin: 0 0 20px; }
+  .card { background: var(--card); border-radius: 14px; padding: 20px; }
+  .tabs-row { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+  .tab {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .tab.active { background: var(--text); color: #fff; border-color: var(--text); }
+  .manage-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .manage-btn:hover { color: var(--text); }
+  .manage-panel {
+    display: none;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 16px;
+    background: #fbfaf6;
+  }
+  .manage-panel.open { display: block; }
+  .manage-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .manage-row input[type="text"] {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  .manage-row button.del-project {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 15px;
+    padding: 4px 6px;
+    flex-shrink: 0;
+  }
+  .manage-row button.del-project:hover { color: #b91c1c; }
+  .add-project-row { display: flex; gap: 6px; margin-top: 10px; }
+  .add-project-row input[type="text"] { flex: 1; padding: 7px 8px; font-size: 13px; }
+  button.small-add {
+    background: var(--accent);
+    color: var(--text);
+    border: none;
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .add-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  input[type="text"] {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text);
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  select {
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text);
+    background: #fff;
+  }
+  button.add {
+    background: var(--accent);
+    color: var(--text);
+    border: none;
+    border-radius: 8px;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.add:hover { opacity: 0.9; }
+  .stats { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+  }
+  li input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
+  .task-main { flex: 1; min-width: 0; }
+  .task-main span.text { font-size: 14px; color: var(--text); display: block; }
+  li.done .task-main span.text { color: var(--muted); text-decoration: line-through; }
+  .task-project { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  li select.move {
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  li button.del {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 6px; flex-shrink: 0;
+  }
+  li button.del:hover { background: #f3f1ea; color: #b91c1c; }
+  .empty { font-size: 14px; color: var(--muted); text-align: center; padding: 20px 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Lista de tarefas</h1>
+  <p class="subtitle">Salva automaticamente neste navegador</p>
+  <div class="card">
+    <div class="tabs-row">
+      <div class="tabs" id="tabs"></div>
+      <button class="manage-btn" id="manage-toggle">Editar projetos</button>
+    </div>
+
+    <div class="manage-panel" id="manage-panel">
+      <div id="manage-list"></div>
+      <div class="add-project-row">
+        <input type="text" id="new-project-name" placeholder="Novo projeto" />
+        <button class="small-add" id="add-project-btn">Criar</button>
+      </div>
+    </div>
+
+    <div class="add-row">
+      <input type="text" id="new-task" placeholder="Adicionar uma tarefa" />
+      <select id="new-project"></select>
+      <button class="add" id="add-btn">Adicionar</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <p id="loading-state" style="font-size:13px; color:var(--muted); text-align:center; padding:16px 0;">Conectando…</p>
+    <ul id="task-list"></ul>
+    <p class="empty" id="empty-state" style="display:none;">Nenhuma tarefa aqui ainda.</p>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "lista-de-tarefas-v3";
+
+const defaultData = {
+  projects: ["Imediato", "Casa", "Lumisial", "App", "Site", "Ideias"],
+  tasks: [
+    { id: 1, text: "Conseguir as dez pessoas que faltam para aprovar o aplicativo no Play Store", done: false, project: "App" },
+    { id: 2, text: "Transformar o aplicativo em algo acessível por link de um site, sem mostrar o nome Lovable", done: false, project: "Site" },
+    { id: 3, text: "Criar um mapa do depósito da empresa Rocaboa e plastificar", done: false, project: "Imediato" },
+    { id: 4, text: "Traduzir o áudio do clipe das gatas para português, francês e italiano (inglês já pronto)", done: false, project: "App" },
+    { id: 5, text: "Continuar postando os artigos no site", done: false, project: "Site" },
+    { id: 6, text: "Aprender a fazer a declaração fiscal na Suíça sozinho", done: false, project: "Casa" }
+  ]
+};
+
+let PROJECTS = [];
+let tasks = [];
+let nextId = 1;
+let activeTab = "Todos";
+let managePanelOpen = false;
+let dataLoaded = false;
+
+function waitForFirebase() {
+  return new Promise(resolve => {
+    if (window.cloudStorage) return resolve();
+    window.addEventListener("firebase-ready", () => resolve(), { once: true });
+  });
+}
+
+async function loadData() {
+  await waitForFirebase();
+  try {
+    const result = await window.cloudStorage.load();
+    if (result) {
+      PROJECTS = result.projects;
+      tasks = result.tasks;
+    } else {
+      PROJECTS = JSON.parse(JSON.stringify(defaultData.projects));
+      tasks = JSON.parse(JSON.stringify(defaultData.tasks));
+      await window.cloudStorage.save({ projects: PROJECTS, tasks });
+    }
+  } catch (e) {
+    console.error("Falha ao carregar do Firebase:", e);
+    PROJECTS = JSON.parse(JSON.stringify(defaultData.projects));
+    tasks = JSON.parse(JSON.stringify(defaultData.tasks));
+  }
+  nextId = tasks.length ? Math.max(...tasks.map(t => t.id)) + 1 : 1;
+  dataLoaded = true;
+}
+
+async function saveData() {
+  try {
+    await window.cloudStorage.save({ projects: PROJECTS, tasks });
+  } catch (e) {
+    console.error("Falha ao salvar no Firebase:", e);
+  }
+}
+
+function renderTabs() {
+  const tabsEl = document.getElementById("tabs");
+  tabsEl.innerHTML = "";
+  ["Todos", ...PROJECTS].forEach(p => {
+    const btn = document.createElement("button");
+    btn.className = "tab" + (p === activeTab ? " active" : "");
+    btn.textContent = p;
+    btn.onclick = () => { activeTab = p; render(); };
+    tabsEl.appendChild(btn);
+  });
+}
+
+function renderManagePanel() {
+  const panel = document.getElementById("manage-panel");
+  panel.classList.toggle("open", managePanelOpen);
+  if (!managePanelOpen) return;
+
+  const listEl = document.getElementById("manage-list");
+  listEl.innerHTML = "";
+  PROJECTS.forEach((p, idx) => {
+    const row = document.createElement("div");
+    row.className = "manage-row";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = p;
+    input.style.flex = "1";
+    input.onchange = async () => {
+      const newName = input.value.trim();
+      if (!newName || newName === p) { input.value = p; return; }
+      if (PROJECTS.includes(newName)) { input.value = p; return; }
+      tasks.forEach(t => { if (t.project === p) t.project = newName; });
+      if (activeTab === p) activeTab = newName;
+      PROJECTS[idx] = newName;
+      await saveData();
+      render();
+    };
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "del-project";
+    delBtn.textContent = "✕";
+    delBtn.setAttribute("aria-label", "Excluir projeto");
+    delBtn.onclick = async () => {
+      if (PROJECTS.length <= 1) return;
+      const fallback = PROJECTS.find(x => x !== p);
+      tasks.forEach(t => { if (t.project === p) t.project = fallback; });
+      PROJECTS = PROJECTS.filter(x => x !== p);
+      if (activeTab === p) activeTab = "Todos";
+      await saveData();
+      render();
+    };
+
+    row.appendChild(input);
+    row.appendChild(delBtn);
+    listEl.appendChild(row);
+  });
+}
+
+function renderProjectSelect() {
+  const sel = document.getElementById("new-project");
+  sel.innerHTML = "";
+  PROJECTS.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = p;
+    sel.appendChild(opt);
+  });
+  if (activeTab !== "Todos") sel.value = activeTab;
+}
+
+function render() {
+  renderTabs();
+  renderManagePanel();
+  renderProjectSelect();
+
+  const list = document.getElementById("task-list");
+  const empty = document.getElementById("empty-state");
+  const stats = document.getElementById("stats");
+  list.innerHTML = "";
+
+  const visible = activeTab === "Todos" ? tasks : tasks.filter(t => t.project === activeTab);
+  empty.style.display = visible.length === 0 ? "block" : "none";
+
+  const done = visible.filter(t => t.done).length;
+  stats.textContent = visible.length ? done + " de " + visible.length + " concluídas" : "";
+
+  visible.forEach(task => {
+    const li = document.createElement("li");
+    if (task.done) li.classList.add("done");
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = task.done;
+    checkbox.onchange = async () => { task.done = checkbox.checked; await saveData(); render(); };
+
+    const main = document.createElement("div");
+    main.className = "task-main";
+    const label = document.createElement("span");
+    label.className = "text";
+    label.textContent = task.text;
+    main.appendChild(label);
+    if (activeTab === "Todos") {
+      const tag = document.createElement("div");
+      tag.className = "task-project";
+      tag.textContent = task.project;
+      main.appendChild(tag);
+    }
+
+    const moveSel = document.createElement("select");
+    moveSel.className = "move";
+    PROJECTS.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p;
+      opt.textContent = p;
+      if (p === task.project) opt.selected = true;
+      moveSel.appendChild(opt);
+    });
+    moveSel.onchange = async () => { task.project = moveSel.value; await saveData(); render(); };
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "del";
+    delBtn.textContent = "✕";
+    delBtn.setAttribute("aria-label", "Excluir tarefa");
+    delBtn.onclick = async () => { tasks = tasks.filter(t => t.id !== task.id); await saveData(); render(); };
+
+    li.appendChild(checkbox);
+    li.appendChild(main);
+    li.appendChild(moveSel);
+    li.appendChild(delBtn);
+    list.appendChild(li);
+  });
+}
+
+async function addTask() {
+  const input = document.getElementById("new-task");
+  const sel = document.getElementById("new-project");
+  const text = input.value.trim();
+  if (!text) return;
+  tasks.push({ id: nextId++, text, done: false, project: sel.value });
+  input.value = "";
+  await saveData();
+  render();
+}
+
+async function addProject() {
+  const input = document.getElementById("new-project-name");
+  const name = input.value.trim();
+  if (!name || PROJECTS.includes(name)) return;
+  PROJECTS.push(name);
+  input.value = "";
+  await saveData();
+  render();
+}
+
+document.getElementById("add-btn").onclick = addTask;
+document.getElementById("new-task").addEventListener("keydown", e => { if (e.key === "Enter") addTask(); });
+document.getElementById("add-project-btn").onclick = addProject;
+document.getElementById("new-project-name").addEventListener("keydown", e => { if (e.key === "Enter") addProject(); });
+document.getElementById("manage-toggle").onclick = () => { managePanelOpen = !managePanelOpen; render(); };
+
+(async () => {
+  await loadData();
+  document.getElementById("loading-state").style.display = "none";
+  render();
+})();
+</script>
+</body>
+</html>
