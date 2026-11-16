@@ -5,13 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lista de tarefas</title>
 
-<!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  import { getDatabase, ref, get, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-  // ====== COLE AQUI AS SUAS CHAVES DO FIREBASE ======
-  // Pegue isso em: Firebase Console > Configurações do projeto > Seus apps > SDK config
   const firebaseConfig = {
     apiKey: "AIzaSyCs8chhetO13dapyLwAIk70HZUi-U9vH08",
     authDomain: "tarefas-d28b7.firebaseapp.com",
@@ -21,22 +18,10 @@
     messagingSenderId: "713955551716",
     appId: "1:713955551716:web:6f2ac5fbf4ffd4a1b67ff1"
   };
-  // ====================================================
 
-  const firebaseApp = initializeApp(firebaseConfig);
-  const db = getDatabase(firebaseApp);
-  const dataRef = ref(db, "lista-de-tarefas");
-
-  window.cloudStorage = {
-    async load() {
-      const snapshot = await get(dataRef);
-      return snapshot.exists() ? snapshot.val() : null;
-    },
-    async save(data) {
-      await set(dataRef, data);
-    }
-  };
-
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  window.fb = { db, ref, get, set, update, onValue };
   window.dispatchEvent(new Event("firebase-ready"));
 </script>
 
@@ -48,6 +33,8 @@
     --text: #14213D;
     --muted: #6b7280;
     --border: #e5e2d9;
+    --ok: #15803d;
+    --err: #b91c1c;
   }
   * { box-sizing: border-box; }
   body {
@@ -61,7 +48,9 @@
   }
   .app { width: 100%; max-width: 520px; }
   h1 { color: var(--card); font-size: 22px; font-weight: 600; margin: 0 0 4px; }
-  .subtitle { color: rgba(255,255,255,0.6); font-size: 13px; margin: 0 0 20px; }
+  .status { font-size: 13px; margin: 0 0 20px; color: rgba(255,255,255,0.6); }
+  .status.ok { color: #86efac; }
+  .status.err { color: #fca5a5; font-weight: 600; }
   .card { background: var(--card); border-radius: 14px; padding: 20px; }
   .tabs-row { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
   .tabs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
@@ -97,37 +86,18 @@
     background: #fbfaf6;
   }
   .manage-panel.open { display: block; }
-  .manage-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 6px;
-  }
-  .manage-row input[type="text"] {
-    padding: 6px 8px;
-    font-size: 13px;
-  }
+  .manage-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .manage-row input[type="text"] { padding: 6px 8px; font-size: 13px; }
   .manage-row button.del-project {
-    background: none;
-    border: none;
-    color: var(--muted);
-    cursor: pointer;
-    font-size: 15px;
-    padding: 4px 6px;
-    flex-shrink: 0;
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 15px; padding: 4px 6px; flex-shrink: 0;
   }
-  .manage-row button.del-project:hover { color: #b91c1c; }
+  .manage-row button.del-project:hover { color: var(--err); }
   .add-project-row { display: flex; gap: 6px; margin-top: 10px; }
   .add-project-row input[type="text"] { flex: 1; padding: 7px 8px; font-size: 13px; }
   button.small-add {
-    background: var(--accent);
-    color: var(--text);
-    border: none;
-    border-radius: 8px;
-    padding: 0 12px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
+    background: var(--accent); color: var(--text); border: none;
+    border-radius: 8px; padding: 0 12px; font-size: 13px; font-weight: 600; cursor: pointer;
   }
   .add-row { display: flex; gap: 8px; margin-bottom: 10px; }
   input[type="text"] {
@@ -148,26 +118,16 @@
     background: #fff;
   }
   button.add {
-    background: var(--accent);
-    color: var(--text);
-    border: none;
-    border-radius: 8px;
-    padding: 0 16px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
+    background: var(--accent); color: var(--text); border: none;
+    border-radius: 8px; padding: 0 16px; font-size: 14px; font-weight: 600; cursor: pointer;
   }
   button.add:hover { opacity: 0.9; }
   .stats { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
   ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border: 1px solid var(--border);
+    border-radius: 8px; background: #fff;
   }
   li input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
   .task-main { flex: 1; min-width: 0; }
@@ -175,25 +135,21 @@
   li.done .task-main span.text { color: var(--muted); text-decoration: line-through; }
   .task-project { font-size: 11px; color: var(--muted); margin-top: 2px; }
   li select.move {
-    font-size: 11px;
-    padding: 2px 4px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    flex-shrink: 0;
+    font-size: 11px; padding: 2px 4px; border-radius: 6px;
+    border: 1px solid var(--border); color: var(--muted); flex-shrink: 0;
   }
   li button.del {
     background: none; border: none; color: var(--muted);
     cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 6px; flex-shrink: 0;
   }
-  li button.del:hover { background: #f3f1ea; color: #b91c1c; }
+  li button.del:hover { background: #f3f1ea; color: var(--err); }
   .empty { font-size: 14px; color: var(--muted); text-align: center; padding: 20px 0; }
 </style>
 </head>
 <body>
 <div class="app">
   <h1>Lista de tarefas</h1>
-  <p class="subtitle">Salva automaticamente neste navegador</p>
+  <p class="status" id="status">Conectando…</p>
   <div class="card">
     <div class="tabs-row">
       <div class="tabs" id="tabs"></div>
@@ -214,74 +170,104 @@
       <button class="add" id="add-btn">Adicionar</button>
     </div>
     <div class="stats" id="stats"></div>
-    <p id="loading-state" style="font-size:13px; color:var(--muted); text-align:center; padding:16px 0;">Conectando…</p>
     <ul id="task-list"></ul>
     <p class="empty" id="empty-state" style="display:none;">Nenhuma tarefa aqui ainda.</p>
   </div>
 </div>
 
 <script>
-const STORAGE_KEY = "lista-de-tarefas-v3";
+const ROOT = "lista-v2";
 
-const defaultData = {
-  projects: ["Imediato", "Casa", "Lumisial", "App", "Site", "Ideias"],
-  tasks: [
-    { id: 1, text: "Conseguir as dez pessoas que faltam para aprovar o aplicativo no Play Store", done: false, project: "App" },
-    { id: 2, text: "Transformar o aplicativo em algo acessível por link de um site, sem mostrar o nome Lovable", done: false, project: "Site" },
-    { id: 3, text: "Criar um mapa do depósito da empresa Rocaboa e plastificar", done: false, project: "Imediato" },
-    { id: 4, text: "Traduzir o áudio do clipe das gatas para português, francês e italiano (inglês já pronto)", done: false, project: "App" },
-    { id: 5, text: "Continuar postando os artigos no site", done: false, project: "Site" },
-    { id: 6, text: "Aprender a fazer a declaração fiscal na Suíça sozinho", done: false, project: "Casa" }
-  ]
-};
+const DEFAULT_PROJECTS = ["Imediato", "Casa", "Lumisial", "App", "Site", "Ideias"];
+const DEFAULT_TASKS = [
+  { text: "Conseguir as dez pessoas que faltam para aprovar o aplicativo no Play Store", project: "App" },
+  { text: "Transformar o aplicativo em algo acessível por link de um site, sem mostrar o nome Lovable", project: "Site" },
+  { text: "Criar um mapa do depósito da empresa Rocaboa e plastificar", project: "Imediato" },
+  { text: "Traduzir o áudio do clipe das gatas para português, francês e italiano (inglês já pronto)", project: "App" },
+  { text: "Continuar postando os artigos no site", project: "Site" },
+  { text: "Aprender a fazer a declaração fiscal na Suíça sozinho", project: "Casa" }
+];
 
-let PROJECTS = [];
-let tasks = [];
-let nextId = 1;
+let projects = [];
+let tasks = {};            // id -> { text, done, project, order }
 let activeTab = "Todos";
 let managePanelOpen = false;
-let dataLoaded = false;
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+function setStatus(msg, kind) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className = "status" + (kind ? " " + kind : "");
+}
 
 function waitForFirebase() {
   return new Promise(resolve => {
-    if (window.cloudStorage) return resolve();
+    if (window.fb) return resolve();
     window.addEventListener("firebase-ready", () => resolve(), { once: true });
   });
 }
 
-async function loadData() {
-  await waitForFirebase();
+// Executa uma gravação mostrando o estado na tela
+async function write(fn) {
+  setStatus("Salvando…");
   try {
-    const result = await window.cloudStorage.load();
-    if (result) {
-      PROJECTS = result.projects;
-      tasks = result.tasks;
-    } else {
-      PROJECTS = JSON.parse(JSON.stringify(defaultData.projects));
-      tasks = JSON.parse(JSON.stringify(defaultData.tasks));
-      await window.cloudStorage.save({ projects: PROJECTS, tasks });
-    }
+    await fn();
+    setStatus("Sincronizado", "ok");
   } catch (e) {
-    console.error("Falha ao carregar do Firebase:", e);
-    PROJECTS = JSON.parse(JSON.stringify(defaultData.projects));
-    tasks = JSON.parse(JSON.stringify(defaultData.tasks));
+    setStatus("NÃO SALVOU: " + (e && e.message ? e.message : e), "err");
   }
-  nextId = tasks.length ? Math.max(...tasks.map(t => t.id)) + 1 : 1;
-  dataLoaded = true;
 }
 
-async function saveData() {
+async function init() {
+  await waitForFirebase();
+  const { db, ref, get, set, onValue } = window.fb;
+  const root = ref(db, ROOT);
+
+  // Primeira vez: cria os dados (migrando do formato antigo, se existir)
   try {
-    await window.cloudStorage.save({ projects: PROJECTS, tasks });
+    const snap = await get(root);
+    if (!snap.exists()) {
+      let seed = null;
+      try {
+        const old = await get(ref(db, "lista-de-tarefas"));
+        if (old.exists()) seed = old.val();
+      } catch (e) {}
+      const p = seed && seed.projects ? Object.values(seed.projects) : DEFAULT_PROJECTS;
+      const oldTasks = seed && seed.tasks ? Object.values(seed.tasks) : DEFAULT_TASKS;
+      const t = {};
+      oldTasks.forEach((x, i) => {
+        t[uid() + i] = { text: x.text, done: !!x.done, project: x.project, order: i };
+      });
+      await set(root, { projects: p, tasks: t });
+    }
   } catch (e) {
-    console.error("Falha ao salvar no Firebase:", e);
+    setStatus("Sem acesso ao banco: " + e.message, "err");
   }
+
+  // Sincronização em tempo real: qualquer mudança em qualquer aparelho chega aqui
+  onValue(root, snap => {
+    const v = snap.val() || {};
+    projects = v.projects ? Object.values(v.projects) : [];
+    tasks = v.tasks || {};
+    if (activeTab !== "Todos" && !projects.includes(activeTab)) activeTab = "Todos";
+    setStatus("Sincronizado", "ok");
+    render();
+  }, err => {
+    setStatus("Sem acesso ao banco: " + err.message, "err");
+  });
+}
+
+function taskList() {
+  return Object.entries(tasks)
+    .map(([id, t]) => ({ id, ...t }))
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 
 function renderTabs() {
   const tabsEl = document.getElementById("tabs");
   tabsEl.innerHTML = "";
-  ["Todos", ...PROJECTS].forEach(p => {
+  ["Todos", ...projects].forEach(p => {
     const btn = document.createElement("button");
     btn.className = "tab" + (p === activeTab ? " active" : "");
     btn.textContent = p;
@@ -294,40 +280,38 @@ function renderManagePanel() {
   const panel = document.getElementById("manage-panel");
   panel.classList.toggle("open", managePanelOpen);
   if (!managePanelOpen) return;
+  // não reconstruir enquanto a pessoa está digitando num campo do painel
+  if (panel.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
 
   const listEl = document.getElementById("manage-list");
   listEl.innerHTML = "";
-  PROJECTS.forEach((p, idx) => {
+  projects.forEach(p => {
     const row = document.createElement("div");
     row.className = "manage-row";
 
     const input = document.createElement("input");
     input.type = "text";
     input.value = p;
-    input.style.flex = "1";
-    input.onchange = async () => {
+    input.onchange = () => {
       const newName = input.value.trim();
-      if (!newName || newName === p) { input.value = p; return; }
-      if (PROJECTS.includes(newName)) { input.value = p; return; }
-      tasks.forEach(t => { if (t.project === p) t.project = newName; });
+      if (!newName || newName === p || projects.includes(newName)) { input.value = p; return; }
+      const updates = { projects: projects.map(x => x === p ? newName : x) };
+      taskList().filter(t => t.project === p).forEach(t => { updates["tasks/" + t.id + "/project"] = newName; });
       if (activeTab === p) activeTab = newName;
-      PROJECTS[idx] = newName;
-      await saveData();
-      render();
+      write(() => window.fb.update(window.fb.ref(window.fb.db, ROOT), updates));
     };
 
     const delBtn = document.createElement("button");
     delBtn.className = "del-project";
     delBtn.textContent = "✕";
     delBtn.setAttribute("aria-label", "Excluir projeto");
-    delBtn.onclick = async () => {
-      if (PROJECTS.length <= 1) return;
-      const fallback = PROJECTS.find(x => x !== p);
-      tasks.forEach(t => { if (t.project === p) t.project = fallback; });
-      PROJECTS = PROJECTS.filter(x => x !== p);
+    delBtn.onclick = () => {
+      if (projects.length <= 1) return;
+      const fallback = projects.find(x => x !== p);
+      const updates = { projects: projects.filter(x => x !== p) };
+      taskList().filter(t => t.project === p).forEach(t => { updates["tasks/" + t.id + "/project"] = fallback; });
       if (activeTab === p) activeTab = "Todos";
-      await saveData();
-      render();
+      write(() => window.fb.update(window.fb.ref(window.fb.db, ROOT), updates));
     };
 
     row.appendChild(input);
@@ -338,14 +322,16 @@ function renderManagePanel() {
 
 function renderProjectSelect() {
   const sel = document.getElementById("new-project");
+  const previous = sel.value;
   sel.innerHTML = "";
-  PROJECTS.forEach(p => {
+  projects.forEach(p => {
     const opt = document.createElement("option");
     opt.value = p;
     opt.textContent = p;
     sel.appendChild(opt);
   });
   if (activeTab !== "Todos") sel.value = activeTab;
+  else if (projects.includes(previous)) sel.value = previous;
 }
 
 function render() {
@@ -358,7 +344,8 @@ function render() {
   const stats = document.getElementById("stats");
   list.innerHTML = "";
 
-  const visible = activeTab === "Todos" ? tasks : tasks.filter(t => t.project === activeTab);
+  const all = taskList();
+  const visible = activeTab === "Todos" ? all : all.filter(t => t.project === activeTab);
   empty.style.display = visible.length === 0 ? "block" : "none";
 
   const done = visible.filter(t => t.done).length;
@@ -370,8 +357,9 @@ function render() {
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.checked = task.done;
-    checkbox.onchange = async () => { task.done = checkbox.checked; await saveData(); render(); };
+    checkbox.checked = !!task.done;
+    checkbox.onchange = () => write(() =>
+      window.fb.set(window.fb.ref(window.fb.db, ROOT + "/tasks/" + task.id + "/done"), checkbox.checked));
 
     const main = document.createElement("div");
     main.className = "task-main";
@@ -388,20 +376,22 @@ function render() {
 
     const moveSel = document.createElement("select");
     moveSel.className = "move";
-    PROJECTS.forEach(p => {
+    projects.forEach(p => {
       const opt = document.createElement("option");
       opt.value = p;
       opt.textContent = p;
       if (p === task.project) opt.selected = true;
       moveSel.appendChild(opt);
     });
-    moveSel.onchange = async () => { task.project = moveSel.value; await saveData(); render(); };
+    moveSel.onchange = () => write(() =>
+      window.fb.set(window.fb.ref(window.fb.db, ROOT + "/tasks/" + task.id + "/project"), moveSel.value));
 
     const delBtn = document.createElement("button");
     delBtn.className = "del";
     delBtn.textContent = "✕";
     delBtn.setAttribute("aria-label", "Excluir tarefa");
-    delBtn.onclick = async () => { tasks = tasks.filter(t => t.id !== task.id); await saveData(); render(); };
+    delBtn.onclick = () => write(() =>
+      window.fb.set(window.fb.ref(window.fb.db, ROOT + "/tasks/" + task.id), null));
 
     li.appendChild(checkbox);
     li.appendChild(main);
@@ -411,25 +401,22 @@ function render() {
   });
 }
 
-async function addTask() {
+function addTask() {
   const input = document.getElementById("new-task");
   const sel = document.getElementById("new-project");
   const text = input.value.trim();
-  if (!text) return;
-  tasks.push({ id: nextId++, text, done: false, project: sel.value });
+  if (!text || !sel.value) return;
   input.value = "";
-  await saveData();
-  render();
+  write(() => window.fb.set(window.fb.ref(window.fb.db, ROOT + "/tasks/" + uid()),
+    { text, done: false, project: sel.value, order: Date.now() }));
 }
 
-async function addProject() {
+function addProject() {
   const input = document.getElementById("new-project-name");
   const name = input.value.trim();
-  if (!name || PROJECTS.includes(name)) return;
-  PROJECTS.push(name);
+  if (!name || projects.includes(name)) return;
   input.value = "";
-  await saveData();
-  render();
+  write(() => window.fb.set(window.fb.ref(window.fb.db, ROOT + "/projects"), [...projects, name]));
 }
 
 document.getElementById("add-btn").onclick = addTask;
@@ -438,11 +425,7 @@ document.getElementById("add-project-btn").onclick = addProject;
 document.getElementById("new-project-name").addEventListener("keydown", e => { if (e.key === "Enter") addProject(); });
 document.getElementById("manage-toggle").onclick = () => { managePanelOpen = !managePanelOpen; render(); };
 
-(async () => {
-  await loadData();
-  document.getElementById("loading-state").style.display = "none";
-  render();
-})();
+init();
 </script>
 </body>
 </html>
